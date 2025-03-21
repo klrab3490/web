@@ -1,6 +1,6 @@
 import time
-from flask import Response, abort
-from flask import jsonify, request, session, g, send_file, current_app
+from flask import Response, abort, send_file
+from flask import jsonify, request, session, g, current_app
 import uuid
 import os
 from werkzeug.utils import secure_filename
@@ -132,15 +132,30 @@ def generate_model():
         # Process model parameters
         model_type = sanitized_data['model_type']
         parameters = sanitized_data.get('parameters', {})
+        prompt = sanitized_data.get('prompt', '')
         
         # For now, we'll generate OpenSCAD code directly
         if model_type == 'openscad':
-            # Create prompt for the LLM
-            param_text = "\n".join([f"- {k}: {v}" for k, v in parameters.items()])
-            prompt = f"Generate OpenSCAD code for a {model_type} model with: {param_text}"
-            
-            # Generate code
-            code = llm_service.generate_code(prompt)
+            # If prompt is provided, use it directly
+            if prompt:
+                # Generate code with the enhanced LLM service
+                result = llm_service.generate_code(prompt, parameters, user_id)
+                
+                code = result.get("code", "")
+                model_id = result.get("model_id", f"model_{uuid.uuid4().hex[:8]}")
+                preview_path = result.get("preview_path")
+                stl_path = result.get("stl_path")
+            else:
+                # Create prompt for the LLM from parameters
+                param_text = "\n".join([f"- {k}: {v}" for k, v in parameters.items()])
+                prompt = f"Generate OpenSCAD code for a {model_type} model with: {param_text}"
+                
+                # Generate code
+                result = llm_service.generate_code(prompt, parameters, user_id)
+                code = result.get("code", "")
+                model_id = result.get("model_id", f"model_{uuid.uuid4().hex[:8]}")
+                preview_path = result.get("preview_path")
+                stl_path = result.get("stl_path")
             
             # Store in session
             if session_id not in model_sessions:
@@ -149,31 +164,14 @@ def generate_model():
                     "models": []
                 }
                 
-            # Generate model ID
-            model_id = f"model_{uuid.uuid4().hex[:8]}"
-            
-            # Save code to file
-            models_dir = current_app.config['MODELS_DIR']
-            os.makedirs(models_dir, exist_ok=True)
-            
-            is_secure, file_path = security_manager.secure_path(
-                models_dir,
-                f"{model_id}.scad"
-            )
-            
-            if not is_secure:
-                return jsonify({"error": "Invalid model ID format"}), 400
-                
-            with open(file_path, 'w') as f:
-                f.write(code)
-                
             # Create model data
             model_data = {
                 "model_id": model_id,
                 "model_type": "openscad",
-                "file_path": file_path,
                 "code": code,
-                "parameters": parameters
+                "parameters": parameters,
+                "preview_path": preview_path,
+                "stl_path": stl_path
             }
             
             # Add to session
@@ -185,7 +183,10 @@ def generate_model():
                 "model": {
                     "model_id": model_id,
                     "model_type": "openscad",
-                    "code_preview": code[:200] + ("..." if len(code) > 200 else "")
+                    "code_preview": code[:200] + ("..." if len(code) > 200 else ""),
+                    "parameters": parameters,
+                    "preview_path": f"/api/preview/{user_id}/{model_id}" if preview_path else None,
+                    "stl_path": f"/api/model/{user_id}/{model_id}" if stl_path else None
                 },
                 "session_id": session_id
             })
@@ -218,7 +219,9 @@ def get_model(model_id):
                             "model_id": model["model_id"],
                             "model_type": model["model_type"],
                             "code": model["code"],
-                            "parameters": model["parameters"]
+                            "parameters": model["parameters"],
+                            "preview_path": model.get("preview_path"),
+                            "stl_path": model.get("stl_path")
                         }
                     })
                     
@@ -439,3 +442,101 @@ def get_model_preview(model_id):
     except Exception as e:
         get_security_manager().logger.error(f"Error in get_model_preview: {str(e)}")
         return jsonify({"error": "An error occurred retrieving the preview"}), 500
+
+# New 3D model rendering endpoints
+@bp.route('/preview/<user_id>/<model_id>', methods=['GET'])
+@rate_limit_decorator(20, 60)  # 20 requests per minute
+def get_model_user_preview(user_id, model_id):
+    """Serve model preview image"""
+    try:
+        security_manager = get_security_manager()
+        
+        # Security check to prevent path traversal
+        if '..' in user_id or '..' in model_id or not security_manager.validate_input(model_id, "alphanumeric"):
+            return jsonify({"error": "Invalid request"}), 400
+            
+        preview_filename = model_id.replace('.scad', '.png')
+        preview_dir = os.path.join(current_app.config["MODELS_DIR"], user_id)
+        
+        if not os.path.exists(os.path.join(preview_dir, preview_filename)):
+            return jsonify({"error": "Preview not found"}), 404
+            
+        return send_file(
+            os.path.join(preview_dir, preview_filename),
+            mimetype="image/png"
+        )
+    except Exception as e:
+        get_security_manager().logger.error(f"Error serving preview: {str(e)}")
+        return jsonify({"error": "Preview not found"}), 404
+
+@bp.route('/model/<user_id>/<model_id>', methods=['GET'])
+@rate_limit_decorator(10, 60)  # 10 requests per minute
+def get_model_user_stl(user_id, model_id):
+    """Serve model STL file"""
+    try:
+        security_manager = get_security_manager()
+        
+        # Security check to prevent path traversal
+        if '..' in user_id or '..' in model_id or not security_manager.validate_input(model_id, "alphanumeric"):
+            return jsonify({"error": "Invalid request"}), 400
+            
+        stl_filename = model_id.replace('.scad', '.stl')
+        model_dir = os.path.join(current_app.config["MODELS_DIR"], user_id)
+        
+        if not os.path.exists(os.path.join(model_dir, stl_filename)):
+            return jsonify({"error": "STL file not found"}), 404
+            
+        return send_file(
+            os.path.join(model_dir, stl_filename),
+            as_attachment=True,
+            download_name=f"{model_id}.stl",
+            mimetype="model/stl"
+        )
+    except Exception as e:
+        get_security_manager().logger.error(f"Error serving STL: {str(e)}")
+        return jsonify({"error": "STL not found"}), 404
+
+@bp.route('/code/<user_id>/<model_id>', methods=['GET'])
+@rate_limit_decorator(10, 60)  # 10 requests per minute
+def get_model_user_code(user_id, model_id):
+    """Serve model OpenSCAD code file"""
+    try:
+        security_manager = get_security_manager()
+        
+        # Security check to prevent path traversal
+        if '..' in user_id or '..' in model_id or not security_manager.validate_input(model_id, "alphanumeric"):
+            return jsonify({"error": "Invalid request"}), 400
+            
+        model_dir = os.path.join(current_app.config["MODELS_DIR"], user_id)
+        
+        if not os.path.exists(os.path.join(model_dir, model_id)):
+            return jsonify({"error": "Code file not found"}), 404
+            
+        return send_file(
+            os.path.join(model_dir, model_id),
+            as_attachment=True,
+            download_name=model_id,
+            mimetype="text/plain"
+        )
+    except Exception as e:
+        get_security_manager().logger.error(f"Error serving code: {str(e)}")
+        return jsonify({"error": "Code not found"}), 404
+
+# Endpoint to get user's models
+@bp.route('/user-models', methods=['GET'])
+@rate_limit_decorator(10, 60)  # 10 requests per minute
+def get_user_models():
+    """Get list of models created by the user"""
+    try:
+        user_id = g.user_id
+        llm_service = get_llm_service()
+        result = llm_service.media_service.get_user_models(user_id)
+        
+        if "error" in result:
+            return jsonify({"error": result["error"]}), 500
+            
+        return jsonify({"success": True, "models": result["models"]})
+            
+    except Exception as e:
+        get_security_manager().logger.error(f"Error in get_user_models: {str(e)}")
+        return jsonify({"error": "An error occurred retrieving your models"}), 500

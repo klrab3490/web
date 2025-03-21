@@ -37,6 +37,26 @@ def create_app(config_name=None):
     from app.security.security_manager import SecurityManager
     app.security_manager = SecurityManager(app.config)
     
+    # Initialize media service
+    from app.services.media_service import MediaService
+    app.media_service = MediaService(app.config, app.security_manager)
+    
+    # Initialize LLM service for 3D model generation
+    try:
+        from app.services.models import LLMService, WebCrawler
+        # First create web crawler if web search is enabled
+        if app.config.get('ENABLE_WEB_SEARCH', False):
+            app.web_crawler = WebCrawler()
+        else:
+            app.web_crawler = None
+            
+        # Initialize LLM service
+        app.llm_service = LLMService(app.config)
+        app.logger.info("LLM service initialized successfully")
+    except Exception as e:
+        app.logger.error(f"Failed to initialize LLM service: {str(e)}")
+        app.llm_service = None
+    
     # Register blueprints
     from app.main import bp as main_bp
     from app.api import bp as api_bp
@@ -56,5 +76,16 @@ def create_app(config_name=None):
                 modified_data = response_data.replace('</head>', f'{script}</head>')
                 response.set_data(modified_data)
         return response
+    
+    # Add health check endpoint for LLM service
+    @app.route('/api/health', methods=['GET'])
+    def health_check():
+        """API endpoint to check if the service is running and model is loaded"""
+        if hasattr(app, 'llm_service') and app.llm_service and hasattr(app.llm_service, 'model_loaded') and app.llm_service.model_loaded:
+            return {"status": "ok", "model_loaded": True}
+        elif hasattr(app, 'llm_service') and app.llm_service:
+            return {"status": "degraded", "model_loaded": False}
+        else:
+            return {"status": "error", "model_loaded": False}
     
     return app

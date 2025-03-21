@@ -1,35 +1,89 @@
 {% extends "base.html" %}
 
-{% block title %}3D Model Generator{% endblock %}
+{% block title %}Home - 3D Model Generator{% endblock %}
 
 {% block content %}
-<div class="model-generator">
-    <h2>Generate 3D Model with OpenSCAD</h2>
-    <form id="model-form" class="model-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <div class="form-group">
-            <label for="model-type">Model Type:</label>
-            <select id="model-type" name="model_type" required>
-                <option value="">Select a model type</option>
-                <option value="openscad">OpenSCAD</option>
-            </select>
+<div class="page-container home-page">
+    <div class="hero-section">
+        <h2>Create 3D Models with AI</h2>
+        <p>Generate customizable 3D models in seconds using our AI-powered platform.</p>
+        <div class="action-buttons">
+            <a href="#generator" class="primary-btn">Create a Model</a>
+            <a href="/image-to-3d" class="secondary-btn">Convert Images to 3D</a>
         </div>
-        <div id="parameters-container" class="parameters-container">
-            <!-- Parameters will be loaded dynamically -->
-        </div>
-        <div class="form-actions">
-            <button type="submit" class="primary-btn">Generate Model</button>
-        </div>
-    </form>
-</div>
-
-<div id="model-result" class="model-result" style="display:none;">
-    <h2>Generated Model</h2>
-    <div id="model-viewer" class="model-viewer">
-        <!-- Model viewer will be inserted here -->
     </div>
-    <div id="model-info" class="model-info">
-        <!-- Model info will be inserted here -->
+    
+    <div class="features-section">
+        <h3>What You Can Do</h3>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">📐</div>
+                <h4>Generate 3D Models</h4>
+                <p>Create custom 3D models with simple text descriptions</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🖼️</div>
+                <h4>Image to 3D</h4>
+                <p>Convert your images into 3D models</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚙️</div>
+                <h4>Customize Parameters</h4>
+                <p>Fine-tune every aspect of your models</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💾</div>
+                <h4>Download STL Files</h4>
+                <p>Download ready-to-print STL files</p>
+            </div>
+        </div>
+    </div>
+    
+    <div id="generator" class="generator-section">
+        <h3>Create Your 3D Model</h3>
+        <form id="model-form" class="model-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            
+            <div class="form-group">
+                <label for="model-type">Model Type:</label>
+                <select id="model-type" name="model_type" required>
+                    <option value="">Select a type</option>
+                    <option value="openscad">OpenSCAD Model</option>
+                </select>
+            </div>
+            
+            <div id="parameters-container" class="parameters-container">
+                <!-- Parameters will be added here dynamically -->
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="primary-btn">Generate Model</button>
+            </div>
+        </form>
+        
+        <div id="model-result" class="model-result" style="display:none;">
+            <div class="result-header">
+                <h3>Your 3D Model</h3>
+            </div>
+            
+            <div class="result-content">
+                <div class="model-tabs">
+                    <div class="model-tab active" id="tab-preview">Preview</div>
+                    <div class="model-tab" id="tab-3d">3D View</div>
+                </div>
+                
+                <div id="model-viewer" class="model-viewer">
+                    <div class="placeholder-viewer">
+                        <div class="placeholder-text">3D Preview</div>
+                        <div class="placeholder-cube"></div>
+                    </div>
+                </div>
+                
+                <div id="model-info" class="model-info">
+                    <!-- Model info will be added here dynamically -->
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

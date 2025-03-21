@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - 3D Printing Order</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/STLLoader.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a6da7;
+            --secondary-color: #2c3e50;
+            --accent-color: #e74c3c;
+            --success-color: #27ae60;
+            --background-color: #ecf0f1;
+            --card-bg: #ffffff;
+            --border-color: #ddd;
+            --text-color: #333;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--background-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            text-align: center;
+            padding: 20px 0;
+            background-color: var(--primary-color);
+            color: white;
+            border-radius: 10px 10px 0 0;
+            margin-bottom: 30px;
+        }
+        
+        h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        .checkout-container {
+            display: flex;
+            gap: 30px;
+        }
+        
+        .order-summary {
+            flex: 1;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .checkout-form {
+            flex: 2;
+            background-color: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .section-title {
+            font-size: 18px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--secondary-color);
+        }
+        
+        .model-preview {
+            width: 100%;
+            height: 200px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        #model-preview-img {
+            max-width: 100%;
+            max-height: 100%;
+            display: block;
+            margin: 0 auto;
+        }
+        
+        #model-canvas {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .model-details {
+            margin-bottom: 20px;
+        }
+        
+        .model-details p {
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .model-details .label {
+            color: #666;
+        }
+        
+        .divider {
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 15px 0;
+        }
+        
+        .order-total {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 18px;
+            margin-top: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        
+        .row {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .col {
+            flex: 1;
+        }
+        
+        .submit-btn {
+            background-color: var(--success-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        .submit-btn:hover {
+            background-color: #219653;
+        }
+        
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .checkout-container {
+                flex-direction: column;
+            }
+            
+            .order-summary {
+                order: 1;
+            }
+            
+            .checkout-form {
+                order: 2;
+            }
+            
+            .row {
+                flex-direction: column;
+                gap: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Checkout</h1>
+            <p>Complete your 3D printing order</p>
+        </header>
+        
+        <div class="checkout-container">
+            <div class="order-summary">
+                <h2 class="section-title">Order Summary</h2>
+                
+                <div class="model-preview">
+                    <canvas id="model-canvas"></canvas>
+                </div>
+                
+                <div class="model-details">
+                    <p><span class="label">Model ID:</span> <span id="model-id">{{ model_id }}</span></p>
+                    <p><span class="label">Print Material:</span> <span id="material">Standard PLA</span></p>
+                    <p><span class="label">Color:</span> <span id="color">White</span></p>
+                    <p><span class="label">Print Quality:</span> <span id="quality">Standard (0.2mm)</span></p>
+                    <p><span class="label">Quantity:</span> <span id="quantity">1</span></p>
+                </div>
+                
+                <div class="divider"></div>
+                
+                <div class="model-details">
+                    <p><span class="label">Base Price:</span> <span>$29.99</span></p>
+                    <p><span class="label">Material Fee:</span> <span>$5.00</span></p>
+                    <p><span class="label">Shipping:</span> <span>$8.50</span></p>
+                </div>
+                
+                <div class="divider"></div>
+                
+                <div class="order-total">
+                    <span>Total:</span>
+                    <span>$43.49</span>
+                </div>
+                
+                <a href="/" class="back-link">← Continue Shopping</a>
+            </div>
+            
+            <div class="checkout-form">
+                <h2 class="section-title">Shipping Information</h2>
+                
+                <form action="/process_order" method="POST">
+                    <div class="form-group">
+                        <label for="name">Full Name</label>
+                        <input type="text" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="email">Email Address</label>
+                        <input type="email" id="email" name="email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="address">Street Address</label>
+                        <input type="text" id="address" name="address" required>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col form-group">
+                            <label for="city">City</label>
+                            <input type="text" id="city" name="city" required>
+                        </div>
+                        
+                        <div class="col form-group">
+                            <label for="zip">ZIP / Postal Code</label>
+                            <input type="text" id="zip" name="zip" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="country">Country</label>
+                        <select id="country" name="country" required>
+                            <option value="">Select Country</option>
+                            <option value="US">United States</option>
+                            <option value="CA">Canada</option>
+                            <option value="UK">United Kingdom</option>
+                            <option value="AU">Australia</option>
+                            <option value="DE">Germany</option>
+                            <option value="FR">France</option>
+                            <option value="JP">Japan</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <h2 class="section-title">Printing Options</h2>
+                    
+                    <div class="form-group">
+                        <label for="material">Material</label>
+                        <select id="material-select" name="material" required>
+                            <option value="PLA" selected>Standard PLA ($5.00)</option>
+                            <option value="ABS">ABS ($7.00)</option>
+                            <option value="PETG">PETG ($8.00)</option>
+                            <option value="TPU">Flexible TPU ($12.00)</option>
+                            <option value="Resin">Premium Resin ($15.00)</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="color">Color</label>
+                        <select id="color-select" name="color" required>
+                            <option value="White" selected>White</option>
+                            <option value="Black">Black</option>
+                            <option value="Gray">Gray</option>
+                            <option value="Red">Red</option>
+                            <option value="Blue">Blue</option>
+                            <option value="Green">Green</option>
+                            <option value="Yellow">Yellow</option>
+                            <option value="Orange">Orange</option>
+                            <option value="Purple">Purple</option>
+                            <option value="Brown">Brown</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="quantity">Quantity</label>
+                        <select id="quantity-select" name="quantity" required>
+                            <option value="1" selected>1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">Place Order</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // 3D renderer
+        let renderer, scene, camera, controls, modelMesh;
+        
+        // Initialize 3D view
+        initializeModelViewer();
+        
+        // Update material and color in summary when changed
+        document.getElementById('material-select').addEventListener('change', function() {
+            document.getElementById('material').textContent = this.options[this.selectedIndex].text.split('(')[0].trim();
+            updateOrderTotal();
+        });
+        
+        document.getElementById('color-select').addEventListener('change', function() {
+            document.getElementById('color').textContent = this.options[this.selectedIndex].text;
+            updateModelColor(this.value);
+        });
+        
+        document.getElementById('quantity-select').addEventListener('change', function() {
+            document.getElementById('quantity').textContent = this.value;
+            updateOrderTotal();
+        });
+        
+        function updateOrderTotal() {
+            // In a real app, this would calculate the actual total based on options
+            // For this demo, we'll just use a simple calculation
+            
+            const materialSelect = document.getElementById('material-select');
+            const materialCost = parseFloat(materialSelect.options[materialSelect.selectedIndex].text.match(/\$(\d+\.\d+)/)[1]);
+            
+            const quantity = parseInt(document.getElementById('quantity-select').value);
+            
+            const basePrice = 29.99;
+            const shippingCost = 8.50;
+            
+            const total = (basePrice + materialCost) * quantity + shippingCost;
+            
+            // Update the display
+            document.querySelector('.order-total span:last-child').textContent = '$' + total.toFixed(2);
+        }
+        
+        function updateModelColor(color) {
+            if (!modelMesh) return;
+            
+            // Map color names to hex values
+            const colorMap = {
+                'White': 0xffffff,
+                'Black': 0x000000,
+                'Gray': 0x808080,
+                'Red': 0xff0000,
+                'Blue': 0x0000ff,
+                'Green': 0x00ff00,
+                'Yellow': 0xffff00,
+                'Orange': 0xffa500,
+                'Purple': 0x800080,
+                'Brown': 0x8B4513
+            };
+            
+            // Update model color
+            modelMesh.material.color.setHex(colorMap[color] || 0xffffff);
+        }
+        
+        function initializeModelViewer() {
+            const modelCanvas = document.getElementById('model-canvas');
+            
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf5f5f5);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, modelCanvas.clientWidth / modelCanvas.clientHeight, 0.1, 1000);
+            camera.position.z = 30;
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ canvas: modelCanvas, antialias: true });
+            renderer.setSize(modelCanvas.clientWidth, modelCanvas.clientHeight);
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0x404040);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(1, 1, 1);
+            scene.add(directionalLight);
+            
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+            directionalLight2.position.set(-1, -1, -1);
+            scene.add(directionalLight2);
+            
+            // Add orbit controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.25;
+            
+            // Add a grid
+            const gridHelper = new THREE.GridHelper(20, 20);
+            scene.add(gridHelper);
+            
+            // Load STL file
+            const stlPath = "{{ model_path }}";
+            const loader = new THREE.STLLoader();
+            loader.load(stlPath, function(geometry) {
+                const material = new THREE.MeshPhongMaterial({
+                    color: 0xffffff,  // Default white
+                    specular: 0x111111,
+                    shininess: 200
+                });
+                
+                modelMesh = new THREE.Mesh(geometry, material);
+                
+                // Center the model
+                geometry.computeBoundingBox();
+                const boundingBox = geometry.boundingBox;
+                const center = new THREE.Vector3();
+                boundingBox.getCenter(center);
+                modelMesh.position.set(-center.x, -center.y, -center.z);
+                
+                // Scale the model to fit the view
+                const size = new THREE.Vector3();
+                boundingBox.getSize(size);
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const scale = 15 / maxDim;
+                modelMesh.scale.set(scale, scale, scale);
+                
+                scene.add(modelMesh);
+                
+                // Position camera to view the model
+                camera.position.set(0, 10, 30);
+                controls.update();
+            });
+            
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            
+            animate();
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize, false);
+            function onWindowResize() {
+                camera.aspect = modelCanvas.clientWidth / modelCanvas.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(modelCanvas.clientWidth, modelCanvas.clientHeight);
+            }
+        }
+    </script>
+</body>
+</html>
