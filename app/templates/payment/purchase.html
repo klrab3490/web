@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Purchase Credits{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>Purchase Credits</h1>
+  <form action="/api/process-payment" method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="form-group">
+      <label for="credits">Number of Credits:</label>
+      <select name="credits" id="credits">
+        <option value="10">10 Credits - $9.99</option>
+        <option value="20">20 Credits - $17.99</option>
+        <option value="50">50 Credits - $39.99</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="payment-method">Payment Method:</label>
+      <div class="payment-options">
+        <label>
+          <input type="radio" name="payment-method" value="credit-card" checked>
+          Credit Card
+        </label>
+        <label>
+          <input type="radio" name="payment-method" value="paypal">
+          PayPal
+        </label>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Purchase</button>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}3D Model Generator{% endblock %}
+
+{% block content %}
+<div class="model-generator">
+    <h2>Generate 3D Model with OpenSCAD</h2>
+    <form id="model-form" class="model-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="form-group">
+            <label for="model-type">Model Type:</label>
+            <select id="model-type" name="model_type" required>
+                <option value="">Select a model type</option>
+                <option value="openscad">OpenSCAD</option>
+            </select>
+        </div>
+        <div id="parameters-container" class="parameters-container">
+            <!-- Parameters will be loaded dynamically -->
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="primary-btn">Generate Model</button>
+        </div>
+    </form>
+</div>
+
+<div id="model-result" class="model-result" style="display:none;">
+    <h2>Generated Model</h2>
+    <div id="model-viewer" class="model-viewer">
+        <!-- Model viewer will be inserted here -->
+    </div>
+    <div id="model-info" class="model-info">
+        <!-- Model info will be inserted here -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/model-generator.js') }}"></script>
+{% endblock %}

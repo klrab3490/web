@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Image for 3D Conversion{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1>Image to 3D Conversion</h1>
+  <form action="/api/upload" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="form-group">
+      <label for="image">Select an image to convert to 3D:</label>
+      <input type="file" name="image" id="image" accept="image/*" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Convert to 3D</button>
+  </form>
+</div>
+{% endblock %}

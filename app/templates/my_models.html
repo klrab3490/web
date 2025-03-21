@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}My 3D Models{% endblock %}
+
+{% block content %}
+<div class="my-models-container">
+    <h2>My 3D Models</h2>
+    
+    <div class="models-filter">
+        <div class="form-group">
+            <label for="model-type-filter">Filter by Type:</label>
+            <select id="model-type-filter">
+                <option value="">All Types</option>
+                <option value="openscad">OpenSCAD</option>
+                <option value="image-to-3d">Image to 3D</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="sort-by">Sort by:</label>
+            <select id="sort-by">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+            </select>
+        </div>
+    </div>
+    
+    <div id="models-container" class="models-grid">
+        <!-- Models will be loaded dynamically -->
+        <div class="model-loading">Loading your models...</div>
+    </div>
+    
+    <div id="no-models" class="no-models" style="display:none;">
+        <p>You don't have any 3D models yet.</p>
+        <div class="action-buttons">
+            <a href="/" class="primary-btn">Create OpenSCAD Model</a>
+            <a href="/image-to-3d" class="secondary-btn">Convert Image to 3D</a>
+        </div>
+    </div>
+    
+    <div class="pagination">
+        <button id="load-more-btn" class="secondary-btn" style="display:none;">Load More</button>
+    </div>
+</div>
+
+<!-- Model Details Modal -->
+<div id="model-details-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+        <span class="close-modal">&times;</span>
+        <h3>Model Details</h3>
+        <div class="modal-body">
+            <div id="modal-model-viewer" class="modal-model-viewer"></div>
+            <div id="modal-model-info" class="modal-model-info"></div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/my-models.js') }}"></script>
+{% endblock %}
